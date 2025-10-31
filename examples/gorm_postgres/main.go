@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/mhshajib/chronz"
-	chronzgorm "github.com/mhshajib/chronz/chronz_gorm"
+	chronzGorm "github.com/mhshajib/chronz/chronz_gorm"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -30,7 +30,7 @@ func main() {
 	}
 
 	// Register the tz serializer once at boot
-	schema.RegisterSerializer("tztime", chronzgorm.TZTimeSerializer{})
+	schema.RegisterSerializer("tztime", chronzGorm.TZTimeSerializer{})
 
 	// Migrate + insert (local -> UTC)
 	_ = db.AutoMigrate(&Order{})
@@ -40,9 +40,14 @@ func main() {
 	var out []Order
 	_ = db.WithContext(ctx).Find(&out).Error
 
-	// Example raw WHERE using ArgTime (local -> UTC)
+	// Example raw WHERE using named parameter (local -> UTC)
 	_ = db.WithContext(ctx).
-		Where("created_at >= @created_at", chronzgorm.ArgTime(ctx, "created_at", time.Now().Add(-24*time.Hour))).
+		Where("created_at >= @created_at", chronzGorm.ArgTime(ctx, "created_at", time.Now().Add(-24*time.Hour))).
+		Find(&out).Error
+
+	// Example raw WHERE using positional parameter (local -> UTC)
+	_ = db.WithContext(ctx).
+		Where("created_at >= ?", chronzGorm.ArgTimeValue(ctx, time.Now().Add(-24*time.Hour))).
 		Find(&out).Error
 
 	fmt.Println("Orders (localized):")

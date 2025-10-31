@@ -56,7 +56,7 @@ If no timezone or country is provided, Chronz falls back to UTC by default.
 
 You can change the default fallback for your entire application using:
 
-````go
+```go
 chronz.SetDefaultTZ("Asia/Dhaka")
 ```
 
@@ -76,7 +76,6 @@ Now if you call:
 ctx := context.Background()
 loc := chronz.LocationFromCtx(ctx)
 fmt.Println(loc) // Asia/Dhaka
-
 ```
 
 it will use your custom fallback timezone automatically.
@@ -92,7 +91,7 @@ import (
 )
 
 schema.RegisterSerializer("tztime", chronzgorm.TZTimeSerializer{})
-````
+```
 
 ### Tag your model fields
 
@@ -118,60 +117,21 @@ db.WithContext(ctx).Find(&orders)
 fmt.Println(orders[0].CreatedAt) // in local timezone
 ```
 
-### Use ArgTime for raw WHERE queries
+### Using time-based filters safely
+
+You can safely use either named or positional parameters for time-based filters.  
+Both automatically convert local input times to UTC before querying.
+
+**Named param (with @created_at):**
 
 ```go
-db.Where("created_at >= @created_at", chronzgorm.ArgTime(ctx, "created_at", input))
+db.Where("created_at >= @created_at", chronzgorm.ArgTime(ctx, "created_at", input)).Find(&out)
 ```
 
-## Using with MongoDB
-
-### Import and wrap collection
+**Positional param (with ?):**
 
 ```go
-import (
-  chronzmongo "github.com/mhshajib/chronz/chronz_mongo"
-  "go.mongodb.org/mongo-driver/mongo"
-  "go.mongodb.org/mongo-driver/mongo/options"
-)
-
-client, _ := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://localhost:27017"))
-coll := chronzmongo.WrapCollection(client.Database("orders_db").Collection("orders"))
-```
-
-### Tag struct fields
-
-```go
-type Order struct {
-  ID        string    `bson:"_id,omitempty"`
-  CreatedAt time.Time `bson:"created_at" tz:"local"`
-}
-```
-
-### Insert (local → UTC)
-
-```go
-ctx := chronz.WithTZName(context.Background(), "Asia/Dhaka")
-coll.InsertOne(ctx, Order{CreatedAt: time.Now()})
-```
-
-### FindOne (UTC → local)
-
-```go
-res := coll.FindOne(ctx, bson.M{})
-var out Order
-chronzmongo.DecodeLocal(ctx, res, &out)
-fmt.Println(out.CreatedAt)
-```
-
-### Aggregate (normalize pipelines)
-
-```go
-pipe := mongo.Pipeline{
-  {{"$match", bson.M{"created_at": bson.M{"$gte": inputTime}}}},
-}
-pipe = chronzmongo.NormalizePipeline(ctx, pipe)
-cur, _ := coll.Aggregate(ctx, pipe)
+db.Where("created_at >= ?", chronzgorm.ArgTimeValue(ctx, input)).Find(&out)
 ```
 
 ## Example Projects
@@ -193,61 +153,6 @@ Expected output:
 Orders (localized):
  -> 2025-11-02 21:47:00 +0600 +06
 ```
-
-### MongoDB Example
-
-Folder: examples/mongo
-
-```bash
-cd examples/mongo
-docker compose up -d
-go mod tidy
-go run .
-```
-
-Expected output:
-
-```
-Inserted & read (localized): 2025-11-02 21:48:00 +0600 +06
-```
-
-## Directory Structure
-
-```
-chronz/
-├── chronz/                # core ctx/parse/convert logic
-│   ├── ctx.go
-│   ├── parse.go
-│   └── convert.go
-│
-├── chronz_gorm/           # GORM support
-│   ├── serializer.go
-│   └── args.go
-│
-├── chronz_mongo/          # Mongo support
-│   ├── wrap.go
-│   └── pipeline.go
-│
-├── examples/
-│   ├── gorm_postgres/
-│   │   ├── docker-compose.yml
-│   │   ├── go.mod
-│   │   └── main.go
-│   └── mongo/
-│       ├── docker-compose.yml
-│       ├── go.mod
-│       └── main.go
-│
-├── logo.png
-└── README.md
-```
-
-## Design Philosophy
-
-- UTC is the source of truth
-- Local presentation is contextual
-- Non-intrusive and framework-agnostic
-- Designed for microservices with multi-country support
 
 ## License
 

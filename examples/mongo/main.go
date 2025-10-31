@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"github.com/mhshajib/chronz"
-	chronzmongo "github.com/mhshajib/chronz/chronz_mongo"
+	chronzMongo "github.com/mhshajib/chronz/chronz_mongo"
 
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
@@ -29,7 +29,7 @@ func main() {
 	defer client.Disconnect(ctx)
 
 	base := client.Database("orders_db").Collection("orders")
-	coll := chronzmongo.WrapCollection(base)
+	coll := chronzMongo.WrapCollection(base)
 
 	// Insert (local -> UTC)
 	_, _ = coll.InsertOne(ctx, Order{CreatedAt: time.Now()})
@@ -37,12 +37,12 @@ func main() {
 	// FindOne (UTC -> local)
 	res := coll.FindOne(ctx, bson.M{})
 	var out Order
-	_ = chronzmongo.DecodeLocal(ctx, res, &out)
+	_ = chronzMongo.DecodeLocal(ctx, res, &out)
 
 	fmt.Println("Inserted & read (localized):", out.CreatedAt)
 
 	// Example aggregate with NormalizePipeline
-	pipe := chronzmongo.NormalizePipeline(ctx, mongo.Pipeline{
+	pipe := chronzMongo.NormalizePipeline(ctx, mongo.Pipeline{
 		{{"$match", bson.M{"created_at": bson.M{"$gte": time.Now().Add(-24 * time.Hour)}}}},
 	})
 	cur, _ := coll.Aggregate(ctx, pipe)
