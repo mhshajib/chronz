@@ -1,7 +1,7 @@
 # Chronz — Context-Aware Timezone Utilities for Go
 
 <p align="center">
-  <img src="./chronoz.png" alt="Chronz Logo" width="220"/>
+  <img src="./chronz.png" alt="Chronz Logo" width="220"/>
 </p>
 <p align="center">
   <a href="https://pkg.go.dev/github.com/mhshajib/chronz"><img src="https://pkg.go.dev/badge/github.com/mhshajib/chronz.png" alt="Go Reference"></a>

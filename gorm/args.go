@@ -5,7 +5,7 @@ import (
 	"database/sql"
 	"time"
 
-	"github.com/mhshajib/chronz/chronz"
+	"github.com/mhshajib/chronz"
 	"gorm.io/gorm/clause"
 )
 

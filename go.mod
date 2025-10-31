@@ -1,4 +1,4 @@
-module github.com/mhshajib/chronoz
+module github.com/mhshajib/chronz
 
 go 1.22
 

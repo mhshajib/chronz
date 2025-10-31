@@ -6,7 +6,7 @@ import (
 	"reflect"
 	"time"
 
-	"github.com/mhshajib/chronz/chronz"
+	"github.com/mhshajib/chronz"
 	"gorm.io/gorm/schema"
 )
 
