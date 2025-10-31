@@ -19,6 +19,22 @@ It works with both:
 
 ---
 
+## Installation
+
+```bash
+go get github.com/mhshajib/chronz
+```
+
+### Optionally, if you want to use just one adapter:
+
+```bash
+# For Postgres (GORM)
+go get github.com/mhshajib/chronz/chronz_gorm
+
+# For MongoDB
+go get github.com/mhshajib/chronz/chronz_mongo
+```
+
 ## Quick Setup
 
 ### Postgres + GORM
