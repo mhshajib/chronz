@@ -6,7 +6,7 @@
 <p align="center">
   <a href="https://pkg.go.dev/github.com/mhshajib/chronz"><img src="https://pkg.go.dev/badge/github.com/mhshajib/chronz.png" alt="Go Reference"></a>
   <a href="https://goreportcard.com/report/github.com/mhshajib/chronz"><img src="https://goreportcard.com/badge/github.com/mhshajib/chronz" alt="Go Report Card"></a>
-  <a href="https://opensource.org/licenses/MIT"><img src="https://img.shields.io/badge/License-MIT-yellow.svg" alt="License: MIT"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-Chronz%20(MIT%20+%20Attribution)-brightgreen.svg" alt="License: Chronz (MIT + Attribution)"></a>
 </p>
 
 Chronz is a Go library that ensures all your timestamps are stored in UTC while automatically converting to and from local timezones. It uses a context.Context to determine which timezone should apply — either from an explicit timezone string (e.g., "Asia/Dhaka") or from a country_id mapped to a timezone.
@@ -14,131 +14,117 @@ Chronz is a Go library that ensures all your timestamps are stored in UTC while 
 It works with both:
 
 - GORM (Postgres) via a TZTimeSerializer
-- MongoDB via a TZCollection wrapper
+- MongoDB via a TZCollection wrapper or hook-based interceptor
 
-## Overview
+---
 
-- Converts local <-> UTC automatically
-- Context-driven per-request timezone (WithTZName, WithCountryID)
-- Works with both Postgres (GORM) and MongoDB
-- Optional custom country_id → timezone mapping
-- Non-intrusive: no need to change schema or server TZ
-- Includes runnable Docker Compose examples
+## Quick Setup
 
-## Installation
-
-```bash
-go get github.com/mhshajib/chronz
-```
-
-## Basic Usage
-
-### Set a timezone
+### Postgres + GORM
 
 ```go
-ctx := chronz.WithTZName(context.Background(), "Asia/Dhaka")
-```
+package boot
 
-### (Optional) Country ID mapping
-
-```go
-chronz.RegisterCountryTZMap(map[int]string{
-    1: "Asia/Dhaka",
-    2: "Asia/Kuala_Lumpur",
-    3: "Europe/London",
-})
-ctx := chronz.WithCountryID(context.Background(), 1)
-```
-
-### Fallback and Default Timezone
-
-If no timezone or country is provided, Chronz falls back to UTC by default.
-
-You can change the default fallback for your entire application using:
-
-```go
-chronz.SetDefaultTZ("Asia/Dhaka")
-```
-
-After setting this, any context without WithTZName or WithCountryID will use "Asia/Dhaka" as its default timezone.
-
-Example:
-
-```go
-func init() {
-    chronz.SetDefaultTZ("Asia/Dhaka")
-}
-```
-
-Now if you call:
-
-```go
-ctx := context.Background()
-loc := chronz.LocationFromCtx(ctx)
-fmt.Println(loc) // Asia/Dhaka
-```
-
-it will use your custom fallback timezone automatically.
-
-## Using with GORM (Postgres)
-
-### Import and register the serializer
-
-```go
 import (
-  "gorm.io/gorm/schema"
-  chronzgorm "github.com/mhshajib/chronz/chronz_gorm"
+    "github.com/mhshajib/chronz"
+    chronzgorm "github.com/mhshajib/chronz/chronz_gorm"
+    "gorm.io/gorm/schema"
 )
 
-schema.RegisterSerializer("tztime", chronzgorm.TZTimeSerializer{})
-```
-
-### Tag your model fields
-
-```go
-type Order struct {
-  ID        uint
-  CreatedAt time.Time `tz:"local" gorm:"serializer:tztime"`
+func InitGormTZ() {
+    // Optional: Set a fallback timezone
+    chronz.SetDefaultTZ("Asia/Dhaka")
+    // Register serializer globally
+    schema.RegisterSerializer("tztime", chronzgorm.TZTimeSerializer{})
 }
 ```
 
-### Insert data (local → UTC)
+### MongoDB
+
+#### Option A — Enable Global Hooks (no code changes in queries)
 
 ```go
+package boot
+
+import (
+    "github.com/mhshajib/chronz"
+    chronzmongo "github.com/mhshajib/chronz/chronz_mongo"
+    "go.mongodb.org/mongo-driver/mongo"
+)
+
+func InitMongoTZ(client *mongo.Client) {
+    chronz.SetDefaultTZ("Asia/Dhaka")
+    chronzmongo.EnableHooks(client)
+}
+```
+
+#### Option B — Wrap Collection (explicit)
+
+```go
+coll := chronzmongo.WrapCollection(client.Database("orders").Collection("orders"))
+```
+
+Both options ensure all `tz:"local"` fields are automatically converted between local and UTC without changing your queries.
+
+---
+
+## Example Usage
+
+### MongoDB Example
+
+```go
+coll := client.Database("orders").Collection("orders")
 ctx := chronz.WithTZName(context.Background(), "Asia/Dhaka")
-db.WithContext(ctx).Create(&Order{CreatedAt: time.Now()})
+
+coll.InsertOne(ctx, Order{CreatedAt: time.Now()}) // local → UTC automatically
+
+res := coll.FindOne(ctx, bson.M{})
+var out Order
+_ = res.Decode(&out)                              // UTC → local automatically
+fmt.Println(out.CreatedAt)
 ```
 
-### Query data (UTC → local)
+### GORM Example
 
 ```go
-var orders []Order
-db.WithContext(ctx).Find(&orders)
-fmt.Println(orders[0].CreatedAt) // in local timezone
+schema.RegisterSerializer("tztime", chronzgorm.TZTimeSerializer{})
+
+ctx := chronz.WithTZName(context.Background(), "Asia/Dhaka")
+db.WithContext(ctx).Create(&Order{CreatedAt: time.Now()}) // local → UTC
+
+var out []Order
+db.WithContext(ctx).Find(&out)                            // UTC → local
+
+db.WithContext(ctx).
+  Where("created_at >= @created_at", chronzgorm.ArgTime(ctx, "created_at", input)).
+  Find(&out)
 ```
 
-### Using time-based filters safely
+---
 
-You can safely use either named or positional parameters for time-based filters.  
-Both automatically convert local input times to UTC before querying.
-
-**Named param (with @created_at):**
+## Middleware Example (shared for both)
 
 ```go
-db.Where("created_at >= @created_at", chronzgorm.ArgTime(ctx, "created_at", input)).Find(&out)
+func WithTimezone(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        ctx := r.Context()
+        if tz := r.Header.Get("X-TZ"); tz != "" {
+            ctx = chronz.WithTZName(ctx, tz)
+        } else if cid := r.Header.Get("X-Country-ID"); cid != "" {
+            if n, err := strconv.Atoi(cid); err == nil {
+                ctx = chronz.WithCountryID(ctx, n)
+            }
+        }
+        next.ServeHTTP(w, r.WithContext(ctx))
+    })
+}
 ```
 
-**Positional param (with ?):**
-
-```go
-db.Where("created_at >= ?", chronzgorm.ArgTimeValue(ctx, input)).Find(&out)
-```
+---
 
 ## Example Projects
 
 ### GORM + Postgres Example
-
-Folder: examples/gorm_postgres
 
 ```bash
 cd examples/gorm_postgres
@@ -153,6 +139,23 @@ Expected output:
 Orders (localized):
  -> 2025-11-02 21:47:00 +0600 +06
 ```
+
+### MongoDB Example
+
+```bash
+cd examples/mongo
+docker compose up -d
+go mod tidy
+go run .
+```
+
+Expected output:
+
+```
+Inserted & read (localized): 2025-11-02 21:48:00 +0600 +06
+```
+
+---
 
 ## License
 
