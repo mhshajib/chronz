@@ -227,4 +227,8 @@ attribution to the original author and repository.
 
 ## Contributors
 
-[![Contributors](https://contrib.rocks/image?repo=mhshajib/chronz)](https://github.com/mhshajib/chronz/graphs/contributors)
+<a href="https://github.com/mhshajib/chronz/graphs/contributors">
+  <img src="https://img.shields.io/github/contributors/mhshajib/chronz?style=for-the-badge" alt="Contributors"/>
+</a>
+
+[![Contributors](https://contrib.rocks/image?repo=mhshajib/chronz&max=36&v=2)](https://github.com/mhshajib/chronz/graphs/contributors)
