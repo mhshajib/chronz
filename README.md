@@ -15,6 +15,7 @@ It works with both:
 
 - GORM (Postgres) via a TZTimeSerializer
 - MongoDB via a TZCollection wrapper or hook-based interceptor
+- gRPC via interceptors
 
 ---
 
@@ -32,16 +33,14 @@ import (
 )
 
 func InitGormTZ() {
-    // Optional: Set a fallback timezone
     chronz.SetDefaultTZ("Asia/Dhaka")
-    // Register serializer globally
     schema.RegisterSerializer("tztime", chronzgorm.TZTimeSerializer{})
 }
 ```
 
 ### MongoDB
 
-#### Option A — Enable Global Hooks (no code changes in queries)
+#### Option A — Enable Global Hooks (no query changes)
 
 ```go
 package boot
@@ -58,13 +57,11 @@ func InitMongoTZ(client *mongo.Client) {
 }
 ```
 
-#### Option B — Wrap Collection (explicit)
+#### Option B — Wrap Collection (explicit usage)
 
 ```go
 coll := chronzmongo.WrapCollection(client.Database("orders").Collection("orders"))
 ```
-
-Both options ensure all `tz:"local"` fields are automatically converted between local and UTC without changing your queries.
 
 ---
 
@@ -76,11 +73,10 @@ Both options ensure all `tz:"local"` fields are automatically converted between 
 coll := client.Database("orders").Collection("orders")
 ctx := chronz.WithTZName(context.Background(), "Asia/Dhaka")
 
-coll.InsertOne(ctx, Order{CreatedAt: time.Now()}) // local → UTC automatically
-
+coll.InsertOne(ctx, Order{CreatedAt: time.Now()}) // local → UTC
 res := coll.FindOne(ctx, bson.M{})
 var out Order
-_ = res.Decode(&out)                              // UTC → local automatically
+_ = res.Decode(&out)                              // UTC → local
 fmt.Println(out.CreatedAt)
 ```
 
@@ -102,7 +98,9 @@ db.WithContext(ctx).
 
 ---
 
-## Middleware Example (shared for both)
+## Middleware Example (shared for both HTTP & gRPC)
+
+### HTTP Middleware
 
 ```go
 func WithTimezone(next http.Handler) http.Handler {
@@ -117,6 +115,69 @@ func WithTimezone(next http.Handler) http.Handler {
         }
         next.ServeHTTP(w, r.WithContext(ctx))
     })
+}
+```
+
+### gRPC Interceptors
+
+#### Unary Server Interceptor
+
+```go
+func TZUnaryServerInterceptor() grpc.UnaryServerInterceptor {
+    return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
+        if md, ok := metadata.FromIncomingContext(ctx); ok {
+            if vals := md.Get("x-tz"); len(vals) > 0 && vals[0] != "" {
+                ctx = chronz.WithTZName(ctx, vals[0])
+            } else if vals := md.Get("x-country-id"); len(vals) > 0 && vals[0] != "" {
+                if n, err := strconv.Atoi(vals[0]); err == nil {
+                    ctx = chronz.WithCountryID(ctx, n)
+                }
+            }
+        }
+        return handler(ctx, req)
+    }
+}
+```
+
+#### Stream Server Interceptor
+
+```go
+type tzWrappedServerStream struct {
+    grpc.ServerStream
+    ctx context.Context
+}
+func (w *tzWrappedServerStream) Context() context.Context { return w.ctx }
+
+func TZStreamServerInterceptor() grpc.StreamServerInterceptor {
+    return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
+        ctx := ss.Context()
+        if md, ok := metadata.FromIncomingContext(ctx); ok {
+            if vals := md.Get("x-tz"); len(vals) > 0 && vals[0] != "" {
+                ctx = chronz.WithTZName(ctx, vals[0])
+            } else if vals := md.Get("x-country-id"); len(vals) > 0 && vals[0] != "" {
+                if n, err := strconv.Atoi(vals[0]); err == nil {
+                    ctx = chronz.WithCountryID(ctx, n)
+                }
+            }
+        }
+        wrapped := &tzWrappedServerStream{ServerStream: ss, ctx: ctx}
+        return handler(srv, wrapped)
+    }
+}
+```
+
+#### Client Interceptors (propagate context → metadata)
+
+```go
+func TZUnaryClientInterceptor() grpc.UnaryClientInterceptor {
+    return func(ctx context.Context, method string, req, reply interface{}, cc *grpc.ClientConn, invoker grpc.UnaryInvoker, opts ...grpc.CallOption) error {
+        if tz := chronz.TZNameFromCtx(ctx); tz != "" {
+            ctx = metadata.AppendToOutgoingContext(ctx, "x-tz", tz)
+        } else if cid, ok := chronz.CountryIDFromCtx(ctx); ok {
+            ctx = metadata.AppendToOutgoingContext(ctx, "x-country-id", strconv.Itoa(cid))
+        }
+        return invoker(ctx, method, req, reply, cc, opts...)
+    }
 }
 ```
 
