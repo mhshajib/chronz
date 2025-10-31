@@ -156,7 +156,10 @@ Orders (localized):
 
 ## License
 
-MIT © 2025 [Shajib Sikder](https://github.com/mhshajib)
+Chronz License (MIT + Attribution) © 2025 [Shajib Sikder](https://github.com/mhshajib)
+
+This software may be freely used, modified, and distributed with proper
+attribution to the original author and repository.
 
 ## Contributors
 
