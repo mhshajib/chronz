@@ -238,7 +238,7 @@ Inserted & read (localized): 2025-11-02 21:48:00 +0600 +06
 
 ## License
 
-Chronz License (MIT + Attribution) © 2025 [Shajib Sikder](https://github.com/mhshajib)
+Chronz License (MIT + Attribution) © 2025 [Sajib Sikder](https://github.com/mhshajib)
 
 This software may be freely used, modified, and distributed with proper
 attribution to the original author and repository.
