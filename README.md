@@ -9,13 +9,15 @@
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Chronz%20(MIT%20+%20Attribution)-brightgreen.svg" alt="License: Chronz (MIT + Attribution)"></a>
 </p>
 
-Chronz is a Go library that ensures all your timestamps are stored in UTC while automatically converting to and from local timezones. It uses a context.Context to determine which timezone should apply — either from an explicit timezone string (e.g., "Asia/Dhaka") or from a country_id mapped to a timezone.
+Chronz is a lightweight Go library that keeps your timestamps consistent across databases and APIs.
+It automatically stores all times in UTC while transparently converting to and from each user’s local timezone — driven by context.Context.
+The timezone is determined either by an explicit name (e.g., "Asia/Dhaka") or a country_id mapped to a region.
 
-It works with both:
+It integrates seamlessly with:
 
 - GORM (Postgres) via a TZTimeSerializer
 - MongoDB via a TZCollection wrapper or hook-based interceptor
-- gRPC via interceptors
+- gRPC via context-aware interceptors
 
 ---
 
