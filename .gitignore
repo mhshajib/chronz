@@ -1,0 +1,73 @@
+# Binaries and build outputs
+/bin/
+/build/
+/dist/
+/out/
+/tmp/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Compiled Go binaries
+*.test
+*.out
+
+# Go coverage & testing
+coverage.*
+*.coverprofile
+
+# IDE / Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.log
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Example builds
+examples/**/bin/
+examples/**/out/
+examples/**/tmp/
+
+# Docker
+*.env
+.env.local
+.env.development
+.env.production
+docker-compose.override.yml
+
+# Go module cache
+vendor/
+go.sum
+
+# Ignore local data / secrets
+*.key
+*.pem
+*.crt
+*.p12
+*.db
+
+# Ignore test containers and volumes
+examples/**/postgres-data/
+examples/**/mongo-data/
+
+# Ignore generated docs or artifacts
+*.zip
+*.tar.gz
+*.tgz
+*.pdf
+*.bak
+*.old
+
+# Logs
+*.log
+*.trace
+*.pprof
+
+# Temporary build scratch
+*_debug.go
+*_testdata.go
