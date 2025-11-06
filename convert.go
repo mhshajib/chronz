@@ -18,3 +18,9 @@ func UTCToLocal(t time.Time, ctx context.Context) time.Time {
 	}
 	return t.In(LocationFromCtx(ctx))
 }
+
+// ToLocal converts a UTC time to the local timezone from ctx.
+func ToLocal(t time.Time, ctx context.Context) time.Time {
+	loc := LocationFromCtx(ctx)
+	return t.In(loc)
+}
