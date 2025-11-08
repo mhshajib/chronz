@@ -201,6 +201,55 @@ func TZUnaryClientInterceptor() grpc.UnaryClientInterceptor {
 
 ---
 
+## API Reference
+
+### Core Package (`chronz`)
+
+#### `ToLocal(t time.Time, ctx context.Context) time.Time`
+
+Converts a time to the local timezone specified in the context.
+
+```go
+ctx := chronz.WithTZName(context.Background(), "America/New_York")
+utcTime := time.Now().UTC()
+localTime := chronz.ToLocal(utcTime, ctx)
+fmt.Println(localTime) // Displays time in America/New_York timezone
+```
+
+**Parameters:**
+
+- `t`: The time to convert
+- `ctx`: Context containing timezone information
+
+**Returns:** Time converted to the local timezone from context
+
+---
+
+### GORM Package (`chronz_gorm`)
+
+#### `ArgTimeValueFormat(ctx context.Context, v any, layout string) any`
+
+Returns a formatted time string in the specified layout, converting local time to UTC. Useful for formatting timestamps in database queries.
+
+```go
+ctx := chronz.WithTZName(context.Background(), "Asia/Dhaka")
+input := "2025-11-08 15:30:00"
+formatted := chronzgorm.ArgTimeValueFormat(ctx, input, "2006-01-02")
+// Returns: "2025-11-08" in UTC
+
+db.Where("DATE(created_at) = ?", chronzgorm.ArgTimeValueFormat(ctx, input, "2006-01-02")).Find(&orders)
+```
+
+**Parameters:**
+
+- `ctx`: Context containing timezone information
+- `v`: Input value (can be a string parseable as time or `time.Time`)
+- `layout`: Go time format layout string (e.g., `"2006-01-02"`, `"2006-01-02 15:04:05"`)
+
+**Returns:** Formatted UTC time string, or original value if not parseable as time
+
+---
+
 ## Example Projects
 
 ### GORM + Postgres Example
