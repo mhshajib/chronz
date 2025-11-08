@@ -30,3 +30,13 @@ func ArgTimeValue(ctx context.Context, v any) any {
 	}
 	return v
 }
+
+func ArgTimeValueFormat(ctx context.Context, v any, layout string) any {
+	if t, ok := chronz.ParseLocal(ctx, v); ok {
+		return chronz.ToUTC(t, ctx).Format(layout)
+	}
+	if tv, ok := v.(time.Time); ok {
+		return chronz.ToUTC(tv, ctx).Format(layout)
+	}
+	return v
+}
