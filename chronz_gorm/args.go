@@ -3,6 +3,7 @@ package chronz_gorm
 import (
 	"context"
 	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/mhshajib/chronz"
@@ -21,22 +22,39 @@ func ArgTime(ctx context.Context, field string, v any) any {
 }
 
 // ArgTimeValue returns just the UTC time (for positional placeholders like "?").
-func ArgTimeValue(ctx context.Context, v any) any {
+func ArgTimeValue(ctx context.Context, v any) time.Time {
+	// parse as local
 	if t, ok := chronz.ParseLocal(ctx, v); ok {
 		return chronz.ToUTC(t, ctx)
 	}
+
+	// plain time.Time
 	if tv, ok := v.(time.Time); ok {
 		return chronz.ToUTC(tv, ctx)
 	}
-	return v
+
+	// fallback: zero time
+	return time.Time{}
 }
 
-func ArgTimeValueFormat(ctx context.Context, v any, layout string) any {
-	if t, ok := chronz.ParseLocal(ctx, v); ok {
-		return chronz.ToUTC(t, ctx).Format(layout)
+// in package chronz_gorm
+func ArgTimeValueFormat(ctx context.Context, v any, layout string) string {
+	loc := chronz.LocationFromCtx(ctx)
+
+	switch x := v.(type) {
+	case time.Time:
+		// treat as local wall-clock, then UTC, then format
+		return chronz.ToUTC(x.In(loc), ctx).Format(layout)
+	case *time.Time:
+		if x == nil {
+			return ""
+		}
+		return chronz.ToUTC(x.In(loc), ctx).Format(layout)
+	default:
+		if t, ok := chronz.ParseLocal(ctx, v); ok {
+			return chronz.ToUTC(t, ctx).Format(layout)
+		}
+		// last resort: stringify input
+		return fmt.Sprint(v)
 	}
-	if tv, ok := v.(time.Time); ok {
-		return chronz.ToUTC(tv, ctx).Format(layout)
-	}
-	return v
 }
