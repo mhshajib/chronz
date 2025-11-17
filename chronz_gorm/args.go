@@ -58,3 +58,27 @@ func ArgTimeValueFormat(ctx context.Context, v any, layout string) string {
 		return fmt.Sprint(v)
 	}
 }
+
+func StartOfDay(ctx context.Context, t time.Time) time.Time {
+	loc := chronz.LocationFromCtx(ctx)
+	local := t.In(loc)
+	startLocal := time.Date(local.Year(), local.Month(), local.Day(), 0, 0, 0, 0, loc)
+	return startLocal.UTC()
+}
+
+func EndOfDay(ctx context.Context, t time.Time) time.Time {
+	loc := chronz.LocationFromCtx(ctx)
+	local := t.In(loc)
+	endLocal := time.Date(local.Year(), local.Month(), local.Day(), 23, 59, 59, int(time.Second-time.Nanosecond), loc)
+	return endLocal.UTC()
+}
+
+func StartOfDayFromValue(ctx context.Context, v any) time.Time {
+	t, _ := chronz.ParseLocal(ctx, v)
+	return StartOfDay(ctx, t)
+}
+
+func EndOfDayFromValue(ctx context.Context, v any) time.Time {
+	t, _ := chronz.ParseLocal(ctx, v)
+	return EndOfDay(ctx, t)
+}
